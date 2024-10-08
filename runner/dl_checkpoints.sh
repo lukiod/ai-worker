@@ -66,6 +66,10 @@ function download_all_models() {
     # Download image-to-video models.
     huggingface-cli download stabilityai/stable-video-diffusion-img2vid-xt --include "*.fp16.safetensors" "*.json" --cache-dir models
 
+<<<<<<< HEAD
+    # Download audio generation model
+    huggingface-cli download stabilityai/stable-audio-open-1.0 --include "*.safetensors" "*.json" "*.bin" --cache-dir models
+=======
     # Custom pipeline models.
     huggingface-cli download facebook/sam2-hiera-large --include "*.pt" "*.yaml" --cache-dir models
 }
@@ -79,6 +83,7 @@ function download_restricted_models() {
     # Download LLM models (Warning: large model size)
     huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct --include "*.json" "*.bin" "*.safetensors" "*.txt" --cache-dir models
 
+>>>>>>> main
 }
 
 # Enable HF transfer acceleration.
