@@ -3,15 +3,20 @@ import copy
 import json
 
 import yaml
-from app.main import app, use_route_names_as_operation_ids
+from app.main import app
 from app.routes import (
     audio_to_text,
     health,
     image_to_image,
     image_to_video,
+    segment_anything_2,
     text_to_image,
     upscale,
+<<<<<<< HEAD
     text_to_audio,
+=======
+    llm
+>>>>>>> main
 )
 from fastapi.openapi.utils import get_openapi
 import subprocess
@@ -33,7 +38,7 @@ SERVERS = [
     {
         "url": "https://livepeer.studio/api/beta/generate",
         "description": "Livepeer Studio Gateway",
-    }
+    },
 ]
 
 
@@ -122,9 +127,14 @@ def write_openapi(fname: str, entrypoint: str = "runner", version: str = "0.0.0"
     app.include_router(image_to_video.router)
     app.include_router(upscale.router)
     app.include_router(audio_to_text.router)
+<<<<<<< HEAD
     app.include_router(text_to_audio.router)
 
     use_route_names_as_operation_ids(app)
+=======
+    app.include_router(segment_anything_2.router)
+    app.include_router(llm.router)
+>>>>>>> main
 
     logger.info(f"Generating OpenAPI schema for '{entrypoint}' entrypoint...")
     openapi = get_openapi(
@@ -182,10 +192,16 @@ if __name__ == "__main__":
             "and 'gateway'. Default is both."
         ),
     )
+    parser.add_argument(
+        "--version",
+        type=str,
+        default=None,
+        help="The OpenAPI schema version. Default is latest Git semver tag.",
+    )
     args = parser.parse_args()
 
     # Set the 'version' to the latest Git release tag.
-    latest_tag = get_latest_git_release_tag()
+    latest_tag = args.version if args.version else get_latest_git_release_tag()
 
     # Generate orchestrator and Gateway facing OpenAPI schemas.
     logger.info("Generating OpenAPI schema version: $latest_tag")

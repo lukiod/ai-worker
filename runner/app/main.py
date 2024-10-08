@@ -21,8 +21,6 @@ async def lifespan(app: FastAPI):
     app.pipeline = load_pipeline(pipeline, model_id)
     app.include_router(load_route(pipeline))
 
-    use_route_names_as_operation_ids(app)
-
     logger.info(f"Started up with pipeline {app.pipeline}")
     yield
     logger.info("Shutting down")
@@ -52,6 +50,7 @@ def load_pipeline(pipeline: str, model_id: str) -> any:
             from app.pipelines.upscale import UpscalePipeline
 
             return UpscalePipeline(model_id)
+<<<<<<< HEAD
         case "text-to-audio":
             from app.pipelines.text_to_audio import TextToAudioPipeline
 
@@ -59,6 +58,15 @@ def load_pipeline(pipeline: str, model_id: str) -> any:
         case "text-to-audio":
         from app.pipelines.text_to_audio import TextToAudioPipeline
         return TextToAudioPipeline(model_id)
+=======
+        case "segment-anything-2":
+            from app.pipelines.segment_anything_2 import SegmentAnything2Pipeline
+
+            return SegmentAnything2Pipeline(model_id)
+        case "llm":
+            from app.pipelines.llm import LLMPipeline
+            return LLMPipeline(model_id)
+>>>>>>> main
         case _:
             raise EnvironmentError(
                 f"{pipeline} is not a valid pipeline for model {model_id}"
@@ -89,6 +97,13 @@ def load_route(pipeline: str) -> any:
             from app.routes import upscale
 
             return upscale.router
+        case "segment-anything-2":
+            from app.routes import segment_anything_2
+
+            return segment_anything_2.router
+        case "llm":
+            from app.routes import llm
+            return llm.router
         case _:
             raise EnvironmentError(f"{pipeline} is not a valid pipeline")
 
