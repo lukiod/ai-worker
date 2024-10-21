@@ -271,6 +271,18 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
       - HTTPBearer: []
+<<<<<<< HEAD
+  /text-to-audio:
+    post:
+      summary: Text To Audio
+      description: Generate audio from text prompts.
+      operationId: text_to_audio
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Body_text_to_audio_post'
+=======
       x-speakeasy-name-override: audioToText
   /segment-anything-2:
     post:
@@ -284,6 +296,7 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/Body_genSegmentAnything2'
+>>>>>>> main
         required: true
       responses:
         '200':
@@ -291,8 +304,12 @@ paths:
           content:
             application/json:
               schema:
+<<<<<<< HEAD
+                $ref: '#/components/schemas/AudioResponse'
+=======
                 $ref: '#/components/schemas/MasksResponse'
                 x-speakeasy-name-override: data
+>>>>>>> main
         '400':
           description: Bad Request
           content:
@@ -319,6 +336,8 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
       - HTTPBearer: []
+<<<<<<< HEAD
+=======
       x-speakeasy-name-override: segmentAnything2
   /llm:
     post:
@@ -367,6 +386,7 @@ paths:
       security:
       - HTTPBearer: []
       x-speakeasy-name-override: llm
+>>>>>>> main
 components:
   schemas:
     APIError:
@@ -395,8 +415,38 @@ components:
       type: object
       required:
       - audio
+<<<<<<< HEAD
+      title: Body_audio_to_text_audio_to_text_post'
+    Body_text_to_audio_post:
+      properties:
+        prompt:
+          type: string
+          title: Prompt
+          description: Text prompt to generate audio from.
+        seconds_total:
+          type: integer
+          title: Seconds Total
+          description: Total duration of the generated audio in seconds.
+          default: 30
+        steps:
+          type: integer
+          title: Steps
+          description: Number of inference steps for audio generation.
+          default: 100
+        cfg_scale:
+          type: number
+          title: CFG Scale
+          description: Classifier-free guidance scale for audio generation.
+          default: 7.0
+      type: object
+      required:
+      - prompt
+      title: Body_text_to_audio_post
+    Body_image_to_image_image_to_image_post:
+=======
       title: Body_genAudioToText
     Body_genImageToImage:
+>>>>>>> main
       properties:
         prompt:
           type: string
@@ -868,6 +918,15 @@ components:
       - frames
       title: VideoResponse
       description: Response model for video generation.
+    AudioResponse:
+      properties:
+        audio:
+          $ref: '#/components/schemas/Media'
+      type: object
+      required:
+      - audio
+      title: AudioResponse
+      description: Response model for audio generation.
     chunk:
       properties:
         timestamp:
@@ -889,3 +948,4 @@ components:
     HTTPBearer:
       type: http
       scheme: bearer
+    
