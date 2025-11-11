@@ -213,14 +213,17 @@ function download_streamdiffusion_live_models() {
   huggingface-cli download thibaud/controlnet-sd21-color-diffusers --include "*.bin" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
   huggingface-cli download thibaud/controlnet-sd21-ade20k-diffusers --include "*.bin" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
   huggingface-cli download thibaud/controlnet-sd21-normalbae-diffusers --include "*.bin" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
+  huggingface-cli download daydreamlive/TemporalNet2-stable-diffusion-2-1 --include "config.json" "diffusion_pytorch_model.safetensors" "scheduler.bin" --exclude ".onnx" ".onnx_data" --cache-dir models
   # SD1.5 controlnet models
   huggingface-cli download lllyasviel/control_v11f1p_sd15_depth --include "*.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
   huggingface-cli download lllyasviel/control_v11f1e_sd15_tile --include "*.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
   huggingface-cli download lllyasviel/control_v11p_sd15_canny --include "*.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
+  huggingface-cli download daydreamlive/TemporalNet2-stable-diffusion-v1-5 --include "config.json" "diffusion_pytorch_model.safetensors" --cache-dir models
   # SDXL controlnet models
   huggingface-cli download xinsir/controlnet-depth-sdxl-1.0 --include "*.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
   huggingface-cli download xinsir/controlnet-canny-sdxl-1.0 --include "diffusion_pytorch_model.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
   huggingface-cli download xinsir/controlnet-tile-sdxl-1.0 --include "*.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
+  huggingface-cli download daydreamlive/TemporalNet2-stable-diffusion-xl-base-1.0 --include "*.json" "*.safetensors" "scheduler.bin" --exclude ".onnx" ".onnx_data" --cache-dir models
 
   # IP-Adapter (only required files)
   huggingface-cli download h94/IP-Adapter --include "models/ip-adapter_sd15.bin" "models/image_encoder/*" "sdxl_models/ip-adapter_sdxl.bin" "sdxl_models/image_encoder/*" --cache-dir models
@@ -310,9 +313,10 @@ function build_streamdiffusion_tensorrt() {
               --opt-timesteps '3' \
               --min-timesteps '1' \
               --max-timesteps '4' \
-              --controlnets 'thibaud/controlnet-sd21-openpose-diffusers thibaud/controlnet-sd21-hed-diffusers thibaud/controlnet-sd21-canny-diffusers thibaud/controlnet-sd21-depth-diffusers thibaud/controlnet-sd21-color-diffusers thibaud/controlnet-sd21-ade20k-diffusers thibaud/controlnet-sd21-normalbae-diffusers' \
+              --controlnets 'thibaud/controlnet-sd21-openpose-diffusers thibaud/controlnet-sd21-hed-diffusers thibaud/controlnet-sd21-canny-diffusers thibaud/controlnet-sd21-depth-diffusers thibaud/controlnet-sd21-color-diffusers thibaud/controlnet-sd21-ade20k-diffusers thibaud/controlnet-sd21-normalbae-diffusers daydreamlive/TemporalNet2-stable-diffusion-2-1' \
               --build-depth-anything \
               --build-pose \
+              --build-raft \
               && \
             chown -R $(id -u):$(id -g) /models" ||
     (
@@ -328,10 +332,11 @@ function build_streamdiffusion_tensorrt() {
               --opt-timesteps '3' \
               --min-timesteps '1' \
               --max-timesteps '4' \
-              --controlnets 'lllyasviel/control_v11f1p_sd15_depth lllyasviel/control_v11f1e_sd15_tile lllyasviel/control_v11p_sd15_canny' \
+              --controlnets 'lllyasviel/control_v11f1p_sd15_depth lllyasviel/control_v11f1e_sd15_tile lllyasviel/control_v11p_sd15_canny daydreamlive/TemporalNet2-stable-diffusion-v1-5' \
               --ipadapter-types 'regular faceid' \
               --build-depth-anything \
               --build-pose \
+              --build-raft \
               && \
             chown -R $(id -u):$(id -g) /models" ||
     (
@@ -348,10 +353,11 @@ function build_streamdiffusion_tensorrt() {
               --opt-timesteps '1' \
               --min-timesteps '1' \
               --max-timesteps '4' \
-              --controlnets 'xinsir/controlnet-depth-sdxl-1.0 xinsir/controlnet-canny-sdxl-1.0 xinsir/controlnet-tile-sdxl-1.0' \
+              --controlnets 'xinsir/controlnet-depth-sdxl-1.0 xinsir/controlnet-canny-sdxl-1.0 xinsir/controlnet-tile-sdxl-1.0 daydreamlive/TemporalNet2-stable-diffusion-xl-base-1.0' \
               --ipadapter-types 'regular faceid' \
               --build-depth-anything \
               --build-pose \
+              --build-raft \
               && \
             chown -R $(id -u):$(id -g) /models" ||
     (
@@ -480,7 +486,7 @@ done
 
 echo "Starting livepeer AI subnet model downloader..."
 echo "Creating 'models' directory in the current working directory..."
-mkdir -p models/checkpoints models/StreamDiffusion--engines models/insightface models/ComfyUI--{models,output}
+mkdir -p models/checkpoints models/StreamDiffusion--engines models/insightface models/StreamDiffusion--engines/cwd_models models/ComfyUI--{models,output}
 
 # Ensure 'huggingface-cli' is installed.
 echo "Checking if 'huggingface-cli' is installed..."
