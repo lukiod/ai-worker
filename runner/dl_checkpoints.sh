@@ -311,11 +311,7 @@ function build_streamdiffusion_tensorrt() {
               --opt-timesteps '3' \
               --min-timesteps '1' \
               --max-timesteps '4' \
-<<<<<<< HEAD
-              --controlnets 'thibaud/controlnet-sd21-openpose-diffusers thibaud/controlnet-sd21-hed-diffusers thibaud/controlnet-sd21-canny-diffusers thibaud/controlnet-sd21-depth-diffusers thibaud/controlnet-sd21-color-diffusers thibaud/controlnet-sd21-ade20k-diffusers thibaud/controlnet-sd21-normalbae-diffusers daydreamlive/TemporalNet2-stable-diffusion-2-1' \
-=======
-              --controlnets 'thibaud/controlnet-sd21-openpose-diffusers thibaud/controlnet-sd21-hed-diffusers thibaud/controlnet-sd21-canny-diffusers thibaud/controlnet-sd21-depth-diffusers thibaud/controlnet-sd21-color-diffusers' \
->>>>>>> parent of 75b9d00 (Add new controlnet models for streamdiffusion (#802))
+              --controlnets 'thibaud/controlnet-sd21-openpose-diffusers thibaud/controlnet-sd21-hed-diffusers thibaud/controlnet-sd21-canny-diffusers thibaud/controlnet-sd21-depth-diffusers thibaud/controlnet-sd21-color-diffusers daydreamlive/TemporalNet2-stable-diffusion-2-1' \
               --build-depth-anything \
               --build-pose \
               --build-raft \
