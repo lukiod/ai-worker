@@ -1,5 +1,11 @@
+<<<<<<< HEAD
+import asyncio
+import logging
+from pathlib import Path
+=======
 import logging
 import asyncio
+>>>>>>> main
 
 from ..interface import Pipeline
 from ...trickle import VideoFrame, VideoOutput
@@ -36,4 +42,17 @@ class Scope(Pipeline):
         logging.info("Stopping pipeline")
         # clear the frame queue
         self.frame_queue = asyncio.Queue()
+
+    @classmethod
+    def prepare_models(cls):
+        logging.info("Preparing Scope models")
+        try:
+            from lib.schema import HealthResponse  # type: ignore
+
+            assert HealthResponse is not None
+        except ImportError as exc:
+            raise RuntimeError(
+                "Scope Python dependencies are not installed inside this image."
+            ) from exc
+        logging.info("Scope model preparation complete")
 

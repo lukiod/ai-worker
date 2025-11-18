@@ -1,8 +1,9 @@
-import os
-import torch
 import asyncio
 import logging
+import os
+from pathlib import Path
 
+import torch
 from comfystream.client import ComfyStreamClient
 
 from ..interface import Pipeline
@@ -103,3 +104,7 @@ class ComfyUI(Pipeline):
         finally:
             self.client = None
             logging.info("ComfyUI pipeline stopped")
+
+    @classmethod
+    def prepare_models(cls):
+        logging.info("ComfyUI prepare_models is currently a no-op")
