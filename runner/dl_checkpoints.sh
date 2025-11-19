@@ -82,10 +82,10 @@ select_gpu() {
   done
 }
 
-# Checks HF_TOKEN and huggingface-cli login status and throw warning if not authenticated.
+# Check HF_TOKEN and Hugging Face CLI login status, throw warning if not authenticated.
 check_hf_auth() {
-  if [ -z "$HF_TOKEN" ] && [ "$(huggingface-cli whoami)" = "Not logged in" ]; then
-    printf "WARN: Not logged in and HF_TOKEN not set. Log in with 'huggingface-cli login' or set HF_TOKEN to download token-gated models.\n"
+  if [ -z "$HF_TOKEN" ] && [ "$(hf auth whoami)" = "Not logged in" ]; then
+    printf "WARN: Not logged in and HF_TOKEN not set. Log in with 'hf auth login' or set HF_TOKEN to download token-gated models.\n"
     exit 1
   fi
 }
@@ -118,27 +118,27 @@ function download_beta_models() {
   printf "\nDownloading unrestricted models...\n"
 
   # Download text-to-image and image-to-image models.
-  huggingface-cli download SG161222/RealVisXL_V4.0_Lightning --include "*.fp16.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
-  huggingface-cli download ByteDance/SDXL-Lightning --include "*unet.safetensors" --cache-dir models
-  huggingface-cli download timbrooks/instruct-pix2pix --include "*.fp16.safetensors" "*.json" "*.txt" --cache-dir models
+  hf download SG161222/RealVisXL_V4.0_Lightning --include "*.fp16.safetensors" --include "*.json" --include "*.txt" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
+  hf download ByteDance/SDXL-Lightning --include "*unet.safetensors" --cache-dir models
+  hf download timbrooks/instruct-pix2pix --include "*.fp16.safetensors" --include "*.json" --include "*.txt" --cache-dir models
 
   # Download upscale models
-  huggingface-cli download stabilityai/stable-diffusion-x4-upscaler --include "*.fp16.safetensors" --cache-dir models
+  hf download stabilityai/stable-diffusion-x4-upscaler --include "*.fp16.safetensors" --cache-dir models
 
   # Download audio-to-text models.
-  huggingface-cli download openai/whisper-large-v3 --include "*.safetensors" "*.json" --cache-dir models
-  huggingface-cli download distil-whisper/distil-large-v3 --include "*.safetensors" "*.json" --cache-dir models
-  huggingface-cli download openai/whisper-medium --include "*.safetensors" "*.json" --cache-dir models
+  hf download openai/whisper-large-v3 --include "*.safetensors" --include "*.json" --cache-dir models
+  hf download distil-whisper/distil-large-v3 --include "*.safetensors" --include "*.json" --cache-dir models
+  hf download openai/whisper-medium --include "*.safetensors" --include "*.json" --cache-dir models
 
   # Download custom pipeline models.
-  huggingface-cli download facebook/sam2-hiera-large --include "*.pt" "*.yaml" --cache-dir models
-  huggingface-cli download parler-tts/parler-tts-large-v1 --include "*.safetensors" "*.json" "*.model" --cache-dir models
+  hf download facebook/sam2-hiera-large --include "*.pt" --include "*.yaml" --cache-dir models
+  hf download parler-tts/parler-tts-large-v1 --include "*.safetensors" --include "*.json" --include "*.model" --cache-dir models
 
   printf "\nDownloading token-gated models...\n"
 
   # Download image-to-video models (token-gated).
   check_hf_auth
-  huggingface-cli download stabilityai/stable-video-diffusion-img2vid-xt-1-1 --include "*.fp16.safetensors" "*.json" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
+  hf download stabilityai/stable-video-diffusion-img2vid-xt-1-1 --include "*.fp16.safetensors" --include "*.json" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
 }
 
 # Download all models.
@@ -149,26 +149,26 @@ function download_all_models() {
 
   # Download text-to-image and image-to-image models.
   printf "\nDownloading unrestricted models...\n"
-  huggingface-cli download stabilityai/sd-turbo --include "*.fp16.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
-  huggingface-cli download stabilityai/sdxl-turbo --include "*.fp16.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
-  huggingface-cli download runwayml/stable-diffusion-v1-5 --include "*.fp16.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
-  huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0 --include "*.fp16.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
-  huggingface-cli download prompthero/openjourney-v4 --include "*.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
-  huggingface-cli download SG161222/RealVisXL_V4.0 --include "*.fp16.safetensors" "*.json" "*.txt" --exclude ".onnx" ".onnx_data" --cache-dir models
-  huggingface-cli download stabilityai/stable-diffusion-3-medium-diffusers --include "*.fp16*.safetensors" "*.model" "*.json" "*.txt" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
-  huggingface-cli download stabilityai/stable-diffusion-3.5-medium --include "transformer/*.safetensors" "*model.fp16*" "*.model" "*.json" "*.txt" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
-  huggingface-cli download stabilityai/stable-diffusion-3.5-large --include "transformer/*.safetensors" "*model.fp16*" "*.model" "*.json" "*.txt" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
-  huggingface-cli download SG161222/Realistic_Vision_V6.0_B1_noVAE --include "*.fp16.safetensors" "*.json" "*.txt" "*.bin" --exclude ".onnx" ".onnx_data" --cache-dir models
-  huggingface-cli download black-forest-labs/FLUX.1-schnell --include "*.safetensors" "*.json" "*.txt" "*.model" --exclude ".onnx" ".onnx_data" --cache-dir models
+  hf download stabilityai/sd-turbo --include "*.fp16.safetensors" --include "*.json" --include "*.txt" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
+  hf download stabilityai/sdxl-turbo --include "*.fp16.safetensors" --include "*.json" --include "*.txt" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
+  hf download runwayml/stable-diffusion-v1-5 --include "*.fp16.safetensors" --include "*.json" --include "*.txt" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
+  hf download stabilityai/stable-diffusion-xl-base-1.0 --include "*.fp16.safetensors" --include "*.json" --include "*.txt" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
+  hf download prompthero/openjourney-v4 --include "*.safetensors" --include "*.json" --include "*.txt" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
+  hf download SG161222/RealVisXL_V4.0 --include "*.fp16.safetensors" --include "*.json" --include "*.txt" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
+  hf download stabilityai/stable-diffusion-3-medium-diffusers --include "*.fp16*.safetensors" --include "*.model" --include "*.json" --include "*.txt" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
+  hf download stabilityai/stable-diffusion-3.5-medium --include "transformer/*.safetensors" --include "*model.fp16*" --include "*.model" --include "*.json" --include "*.txt" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
+  hf download stabilityai/stable-diffusion-3.5-large --include "transformer/*.safetensors" --include "*model.fp16*" --include "*.model" --include "*.json" --include "*.txt" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
+  hf download SG161222/Realistic_Vision_V6.0_B1_noVAE --include "*.fp16.safetensors" --include "*.json" --include "*.txt" --include "*.bin" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
+  hf download black-forest-labs/FLUX.1-schnell --include "*.safetensors" --include "*.json" --include "*.txt" --include "*.model" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models
 
   # Download image-to-video models.
-  huggingface-cli download stabilityai/stable-video-diffusion-img2vid-xt --include "*.fp16.safetensors" "*.json" --cache-dir models
+  hf download stabilityai/stable-video-diffusion-img2vid-xt --include "*.fp16.safetensors" --include "*.json" --cache-dir models
 
   # Download image-to-text models.
-  huggingface-cli download Salesforce/blip-image-captioning-large --include "*.safetensors" "*.json" --cache-dir models
+  hf download Salesforce/blip-image-captioning-large --include "*.safetensors" --include "*.json" --cache-dir models
 
   # Custom pipeline models.
-  huggingface-cli download facebook/sam2-hiera-large --include "*.pt" "*.yaml" --cache-dir models
+  hf download facebook/sam2-hiera-large --include "*.pt" --include "*.yaml" --cache-dir models
 
   download_live_models
 }
@@ -386,23 +386,23 @@ function download_restricted_models() {
   printf "\nDownloading restricted models...\n"
 
   # Download text-to-image and image-to-image models.
-  huggingface-cli download black-forest-labs/FLUX.1-dev --include "*.safetensors" "*.json" "*.txt" "*.model" --exclude ".onnx" ".onnx_data" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
+  hf download black-forest-labs/FLUX.1-dev --include "*.safetensors" --include "*.json" --include "*.txt" --include "*.model" --exclude ".onnx" --exclude ".onnx_data" --cache-dir models ${TOKEN_FLAG:+"$TOKEN_FLAG"}
   # Download LLM models (Warning: large model size)
-  huggingface-cli download meta-llama/Meta-Llama-3.1-8B-Instruct --include "*.json" "*.bin" "*.safetensors" "*.txt" --cache-dir models
+  hf download meta-llama/Meta-Llama-3.1-8B-Instruct --include "*.json" --include "*.bin" --include "*.safetensors" --include "*.txt" --cache-dir models
 
 }
 
 function download_batch_models() {
   printf "\nDownloading Batch models...\n"
 
-  huggingface-cli download facebook/sam2-hiera-large --include "*.pt" "*.yaml" --cache-dir models
+  hf download facebook/sam2-hiera-large --include "*.pt" --include "*.yaml" --cache-dir models
 }
 
-# Enable HF transfer acceleration.
-# See: https://huggingface.co/docs/huggingface_hub/v0.22.1/package_reference/environment_variables#hfhubenablehftransfer.
-export HF_HUB_ENABLE_HF_TRANSFER=1
+# Enable XET High Performance.
+# See: https://huggingface.co/docs/huggingface_hub/main/en/package_reference/environment_variables#hfxethighperformance
+export HF_XET_HIGH_PERFORMANCE=1
 
-# Use HF_TOKEN if set, otherwise use huggingface-cli's login.
+# Use HF_TOKEN if set, otherwise use Hugging Face CLI's login.
 [ -n "$HF_TOKEN" ] && TOKEN_FLAG="--token=${HF_TOKEN}" || TOKEN_FLAG=""
 
 # Parse command-line arguments.
@@ -447,10 +447,9 @@ echo "Starting livepeer AI subnet model downloader..."
 echo "Creating 'models' directory in the current working directory..."
 mkdir -p models/checkpoints models/StreamDiffusion--engines models/insightface models/StreamDiffusion--models models/ComfyUI--{models,output}
 
-# Ensure 'huggingface-cli' is installed.
-echo "Checking if 'huggingface-cli' is installed..."
-if ! command -v huggingface-cli >/dev/null 2>&1; then
-  echo "WARN: The huggingface-cli is required to download models. Please install it using 'pip install huggingface_hub[cli,hf_transfer]'."
+echo "Checking if 'hf' Hugging Face CLI is installed..."
+if ! command -v hf >/dev/null 2>&1; then
+  echo "ERROR: The Hugging Face CLI is required to download models. Please install it using 'pip install huggingface_hub'."
   exit 1
 fi
 
