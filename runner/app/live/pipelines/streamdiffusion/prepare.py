@@ -273,7 +273,7 @@ def _create_params(model_id: str, model_type: ModelType, ipa_type: Optional[str]
             controlnets.append(config)
 
     # Create IPAdapter config if specified
-    ip_adapter = None
+    ip_adapter = IPAdapterConfig(enabled=False)
     if ipa_type:
         ip_adapter = IPAdapterConfig(
             type=ipa_type,
