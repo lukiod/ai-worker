@@ -84,7 +84,7 @@ jobs:
           - subtype: "sdxl"
           - subtype: "sdxl-faceid"
     env:
-      DOCKER_SUFFIX: ${{ matrix.subtype == 'sdturbo' && '' || format('-{0}', matrix.subtype) }}
+      DOCKER_SUFFIX: ${{ matrix.subtype != 'sdturbo' && format('-{0}', matrix.subtype) || '' }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
