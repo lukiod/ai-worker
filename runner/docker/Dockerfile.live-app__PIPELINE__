@@ -45,7 +45,7 @@ COPY bench.py /app/bench.py
 
 WORKDIR /app
 
-# Keep these last to maximize cache reuse when only runtime envs change
+# Keep these args/envs last to maximize cache reuse when only runtime envs change
 ARG GIT_SHA
 ARG VERSION="undefined"
 ARG INFERPY_INITIAL_PARAMS
