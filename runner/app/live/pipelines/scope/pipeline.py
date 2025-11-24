@@ -1,11 +1,5 @@
-<<<<<<< HEAD
 import asyncio
 import logging
-from pathlib import Path
-=======
-import logging
-import asyncio
->>>>>>> main
 
 from ..interface import Pipeline
 from ...trickle import VideoFrame, VideoOutput
