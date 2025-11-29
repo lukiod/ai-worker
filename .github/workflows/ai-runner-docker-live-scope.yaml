@@ -1,4 +1,4 @@
-name: Building realtime AI scope docker image
+name: Build realtime AI scope docker image
 
 on:
   pull_request:

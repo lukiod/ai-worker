@@ -1,4 +1,4 @@
-name: Building batch AI pipelines docker images
+name: Build batch AI pipelines docker images
 
 on:
   pull_request:

@@ -1,4 +1,4 @@
-name: Building batch AI base docker image
+name: Build batch AI base docker image
 
 on:
   pull_request:
