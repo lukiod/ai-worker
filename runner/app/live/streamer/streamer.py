@@ -11,8 +11,8 @@ from ..process.status import timestamp_to_ms
 
 from .protocol.protocol import StreamProtocol
 
-fps_log_interval = 10
-status_report_interval = 10
+STATUS_REPORT_INTERVAL = 10
+
 
 class PipelineStreamer(StreamerCallbacks):
     def __init__(
@@ -120,22 +120,27 @@ class PipelineStreamer(StreamerCallbacks):
         return False
 
     async def report_status_loop(self):
-        next_report = time.time() + status_report_interval
+        next_report = time.time() + STATUS_REPORT_INTERVAL
+        last_status_timestamp = 0.0
         while not self.stop_event.is_set():
             current_time = time.time()
             if next_report <= current_time:
                 # If we lost track of the next report time, just report immediately
-                next_report = current_time + status_report_interval
+                next_report = current_time + STATUS_REPORT_INTERVAL
             else:
                 await asyncio.sleep(next_report - current_time)
-                next_report += status_report_interval
+                next_report += STATUS_REPORT_INTERVAL
+                current_time = time.time()
 
-            status = self.process.get_status(clear_transient=True)
-            await self.emit_monitoring_event(status.model_dump())
+            status = self.process.get_status(clear_transient=True).model_dump()
+            status["last_status_timestamp"] = last_status_timestamp or status["start_time"]
+            last_status_timestamp = current_time
 
-    async def emit_monitoring_event(self, event: dict, queue_event_type: str = "ai_stream_events"):
+            await self.emit_monitoring_event(status, timestamp=current_time)
+
+    async def emit_monitoring_event(self, event: dict, queue_event_type: str = "ai_stream_events", timestamp: float | None = None):
         """Protected method to emit monitoring event with lock"""
-        event["timestamp"] = timestamp_to_ms(time.time())
+        event["timestamp"] = timestamp_to_ms(timestamp or time.time())
         logging.info(f"Emitting monitoring event: {event}")
         async with self.emit_event_lock:
             try:
