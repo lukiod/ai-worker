@@ -2,6 +2,7 @@ import os
 import logging
 import asyncio
 import base64
+import math
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any, cast
@@ -21,7 +22,10 @@ from .params import (
     ProcessingConfig,
     get_model_type,
     IPADAPTER_SUPPORTED_TYPES,
-    LCM_LORAS_BY_TYPE
+    LCM_LORAS_BY_TYPE,
+    CachedAttentionConfig,
+    CACHED_ATTENTION_MIN_FRAMES,
+    CACHED_ATTENTION_MAX_FRAMES,
 )
 
 ENGINES_DIR = Path("./engines")
@@ -169,6 +173,7 @@ class StreamDiffusion(Pipeline):
             'use_safety_checker', 'safety_checker_threshold', 'controlnets',
             'image_preprocessing', 'image_postprocessing', 'latent_preprocessing', 'latent_postprocessing',
             'ip_adapter', 'ip_adapter_style_image_url',
+            'cached_attention',
         }
 
         update_kwargs = {}
@@ -210,6 +215,20 @@ class StreamDiffusion(Pipeline):
                 update_kwargs['latent_preprocessing_config'] = _prepare_processing_config(new_params.latent_preprocessing)['processors']
             elif key == 'latent_postprocessing':
                 update_kwargs['latent_postprocessing_config'] = _prepare_processing_config(new_params.latent_postprocessing)['processors']
+            elif key == 'cached_attention':
+                curr_cfg = curr_params.get('cached_attention') or CachedAttentionConfig().model_dump()
+                if curr_cfg.get('enabled') != new_value['enabled']:
+                    # Cannot change whether cached attention is enabled or disabled without a reload
+                    return False
+
+                if not new_value['enabled']:
+                    # noop if it's disabled
+                    continue
+
+                update_kwargs.update({
+                    'cache_maxframes': new_value['max_frames'],
+                    'cache_interval': new_value['interval'],
+                })
             else:
                 update_kwargs[key] = new_value
 
@@ -392,6 +411,7 @@ def _prepare_processing_config(cfg: Optional[ProcessingConfig[Any]]) -> Dict[str
         "processors": processors,
     }
 
+
 def load_streamdiffusion_sync(
     params: StreamDiffusionParams,
     min_batch_size=1,
@@ -434,6 +454,11 @@ def load_streamdiffusion_sync(
         latent_postprocessing_config=_prepare_processing_config(params.latent_postprocessing),
         use_safety_checker=params.use_safety_checker,
         safety_checker_threshold=params.safety_checker_threshold,
+        use_cached_attn=params.cached_attention.enabled,
+        cache_maxframes=params.cached_attention.max_frames,
+        cache_interval=params.cached_attention.interval,
+        min_cache_maxframes=CACHED_ATTENTION_MIN_FRAMES,
+        max_cache_maxframes=CACHED_ATTENTION_MAX_FRAMES,
     )
 
     pipe.prepare(

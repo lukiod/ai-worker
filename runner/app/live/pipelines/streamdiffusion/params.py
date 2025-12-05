@@ -39,6 +39,9 @@ LCM_LORAS_BY_TYPE: Dict[ModelType, str] = {
     "sd15": "latent-consistency/lcm-lora-sdv1-5",
 }
 
+CACHED_ATTENTION_MIN_FRAMES = 1
+CACHED_ATTENTION_MAX_FRAMES = 4
+
 MODEL_ID_TO_TYPE: Dict[str, ModelType] = {
     "stabilityai/sd-turbo": "sd21",
     "stabilityai/sdxl-turbo": "sdxl",
@@ -97,7 +100,7 @@ class SingleProcessorConfig(BaseModel, Generic[ProcessorTypeT]):
     # Library has an "order" field, but we simply populate it with the index of the processor in the list
     # order: int
 
-    params: ProcessorParams = {}
+    params: ProcessorParams = Field(default_factory=dict)
     """Parameters for the preprocessor."""
 
 class ProcessingConfig(BaseModel, Generic[ProcessorTypeT]):
@@ -110,7 +113,7 @@ class ProcessingConfig(BaseModel, Generic[ProcessorTypeT]):
     enabled: bool = True
     """Whether this preprocessing is active."""
 
-    processors: List[SingleProcessorConfig[ProcessorTypeT]] = []
+    processors: List[SingleProcessorConfig[ProcessorTypeT]] = Field(default_factory=list)
     """List of processors to apply."""
 
 class ControlNetConfig(BaseModel):
@@ -160,7 +163,7 @@ class ControlNetConfig(BaseModel):
     preprocessor: ImageProcessorName = "passthrough"
     """Preprocessor to apply to input frames before feeding to the ControlNet. Common options include 'pose_tensorrt', 'soft_edge', 'canny', 'depth_tensorrt', 'passthrough'. If None, no preprocessing is applied."""
 
-    preprocessor_params: ProcessorParams = {}
+    preprocessor_params: ProcessorParams = Field(default_factory=dict)
     """Additional parameters for the preprocessor. For example, canny edge detection uses 'low_threshold' and 'high_threshold' values."""
 
     enabled: bool = True
@@ -214,13 +217,42 @@ class IPAdapterConfig(BaseModel):
     """Whether this IPAdapter is active"""
 
 
+class CachedAttentionConfig(BaseModel):
+    """
+    Cached attention (StreamV2V) configuration.
+    """
+
+    class Config:
+        extra = "forbid"
+
+    enabled: bool = True
+    """Enable cached attention to reuse key/value tensors across frames."""
+
+    max_frames: int = Field(
+        default=1,
+        ge=CACHED_ATTENTION_MIN_FRAMES,
+        le=CACHED_ATTENTION_MAX_FRAMES,
+        description="Number of historical K/V frames to retain. Limited by TensorRT engine exports.",
+    )
+    """Number of frames retained in the attention cache."""
+
+    interval: int = Field(
+        default=1,
+        ge=1,
+        le=1440, # 1 minute @ 24 FPS
+        description="How often (in number of frames) to refresh the cache.",
+    )
+    """Cadence (number of frames) for refreshing cached key/value tensors."""
+
+
+
 class StreamDiffusionParams(BaseParams):
     """
     StreamDiffusion pipeline parameters.
 
     **Dynamically updatable parameters** (no reload required):
     - prompt, guidance_scale, delta, num_inference_steps, t_index_list, seed,
-      controlnets.conditioning_scale
+      controlnets.conditioning_scale, cached_attention.max_frames, cached_attention.interval
 
     All other parameters require a full pipeline reload when changed.
     """
@@ -262,7 +294,7 @@ class StreamDiffusionParams(BaseParams):
         description='Builds the full denoising schedule (the "grid" of possible refinement steps). Changing it changes what each step number (t_index_list value) means. Keep it fixed for a session and only adjust if you\'re deliberately redefining the schedule; if you do, proportionally remap your t_index_list. Range: 1–100 with default being 50.'
     )
 
-    t_index_list: List[int] = [12, 20, 32]
+    t_index_list: List[int] = Field(default_factory=lambda: [12, 20, 32])
     """The ordered list of step indices from the num_inference_steps schedule to execute per frame. Each index is one model pass, so latency scales with the list length. Higher indices (e.g., 40–49 on a 50-step grid) mainly polish and preserve structure (lower flicker), while lower indices (<20) rewrite structure (more flicker, creative). Values must be non-decreasing, and each between 0 and num_inference_steps."""
 
     # LoRA settings
@@ -315,11 +347,11 @@ class StreamDiffusionParams(BaseParams):
     """Maximum number of consecutive frames that can be skipped by the similarity filter."""
 
     # ControlNet settings
-    controlnets: List[ControlNetConfig] = []
+    controlnets: List[ControlNetConfig] = Field(default_factory=list)
     """List of ControlNet configurations for guided generation. Each ControlNet provides different types of conditioning (pose, edges, depth, etc.)."""
 
     # IPAdapter settings
-    ip_adapter: IPAdapterConfig = IPAdapterConfig(enabled=False)
+    ip_adapter: IPAdapterConfig = Field(default_factory=lambda: IPAdapterConfig(enabled=False))
     """IPAdapter configuration for style transfer."""
 
     ip_adapter_style_image_url: str = "https://storage.googleapis.com/lp-ai-assets/ipadapter_style_imgs/textures/vortex.jpeg"
@@ -338,6 +370,9 @@ class StreamDiffusionParams(BaseParams):
 
     latent_postprocessing: Optional[ProcessingConfig[LatentProcessorsName]] = None
     """List of latent postprocessor configurations for latent processing."""
+
+    cached_attention: CachedAttentionConfig = Field(default_factory=lambda: CachedAttentionConfig(enabled=False))
+    """Cached attention configuration."""
 
     def get_output_resolution(self) -> tuple[int, int]:
         """
@@ -412,5 +447,20 @@ class StreamDiffusionParams(BaseParams):
                 raise ValueError(
                     f"SDXL models support a maximum of 3 enabled ControlNets, found {len(enabled_cns)}."
                 )
+
+        return model
+
+    @model_validator(mode="after")
+    @staticmethod
+    def check_cached_attention(model: "StreamDiffusionParams") -> "StreamDiffusionParams":
+        cfg = model.cached_attention
+        if not cfg or not cfg.enabled:
+            return model
+
+        if model.acceleration != "tensorrt":
+            raise ValueError("Cached attention is only supported when acceleration='tensorrt'")
+
+        if model.width != 512 or model.height != 512:
+            raise ValueError("Cached attention currently supports only 512x512 resolution")
 
         return model

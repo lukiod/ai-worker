@@ -1,4 +1,4 @@
-## StreamDiffusion Schema Update (PR [#808](https://github.com/livepeer/ai-runner/pull/808))
+## 2025-11-25 StreamDiffusion Schema Update (PR [#808](https://github.com/livepeer/ai-runner/pull/808))
 
 PR #808 expands what the StreamDiffusion pipeline can do. This document captures the schema additions and how to exercise the new processors and execution modes from the params schema.
 

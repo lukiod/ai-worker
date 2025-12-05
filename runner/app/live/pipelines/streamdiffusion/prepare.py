@@ -23,6 +23,9 @@ from .params import (
     ProcessingConfig,
     SingleProcessorConfig,
     ModelType,
+    CachedAttentionConfig,
+    CACHED_ATTENTION_MIN_FRAMES,
+    CACHED_ATTENTION_MAX_FRAMES,
 )
 from . import params
 from .pipeline import load_streamdiffusion_sync, ENGINES_DIR, LOCAL_MODELS_DIR
@@ -31,7 +34,7 @@ MIN_TIMESTEPS = 1
 MAX_TIMESTEPS = 4
 
 # Optimal number of timesteps for t_index_list per model type
-OPT_TIMESTEPS_BY_TYPE: Dict[ModelType, int] = {
+OPTIMAL_TIMESTEPS_BY_TYPE: Dict[ModelType, int] = {
     "sd15": 3,
     "sd21": 3,
     "sdxl": 2,
@@ -226,8 +229,9 @@ def _build_matrix() -> Iterator[BuildJob]:
             ipa_types = ["regular", "faceid"]
 
         for ipa_type in ipa_types:
-            params = _create_params(model_id, model_type, ipa_type)
-            yield BuildJob(params=params)
+            for use_cached_attn in (False, True):
+                params = _create_params(model_id, model_type, ipa_type, use_cached_attn)
+                yield BuildJob(params=params)
 
 
 def _compile_build(job: BuildJob) -> None:
@@ -236,6 +240,7 @@ def _compile_build(job: BuildJob) -> None:
         f"→ Building TensorRT engines | model={job.params.model_id} "
         f"ipadapter={job.params.ip_adapter.type if job.params.ip_adapter and job.params.ip_adapter.enabled else 'disabled'} "
         f"size={job.params.width}x{job.params.height} "
+        f"cached_attention={'on' if job.params.cached_attention.enabled else 'off'} "
         f"timesteps={job.params.t_index_list} batch_min={MIN_TIMESTEPS} batch_max={MAX_TIMESTEPS} "
         f"controlnets={controlnet_ids}"
     )
@@ -255,7 +260,12 @@ def _compile_build(job: BuildJob) -> None:
             torch.cuda.empty_cache()
 
 
-def _create_params(model_id: str, model_type: ModelType, ipa_type: Optional[str]) -> StreamDiffusionParams:
+def _create_params(
+    model_id: str,
+    model_type: ModelType,
+    ipa_type: Optional[str],
+    use_cached_attn: bool,
+) -> StreamDiffusionParams:
     controlnets = []
     controlnet_ids = CONTROLNETS_BY_TYPE.get(model_type)
     if controlnet_ids:
@@ -272,29 +282,25 @@ def _create_params(model_id: str, model_type: ModelType, ipa_type: Optional[str]
             )
             controlnets.append(config)
 
-    # Create IPAdapter config if specified
-    ip_adapter = IPAdapterConfig(enabled=False)
-    if ipa_type:
-        ip_adapter = IPAdapterConfig(
-            type=ipa_type,
-            enabled=True,
-        )
-
-    # Create t_index_list based on number of timesteps. Only the size matters...
-    opt_timesteps = OPT_TIMESTEPS_BY_TYPE.get(model_type, 3)
-    t_index_list = list(range(1, 50, 50 // opt_timesteps))[:opt_timesteps]
+    # Create t_index_list based on number of timesteps. Only the size matters... 😏
+    step_count = OPTIMAL_TIMESTEPS_BY_TYPE.get(model_type, 3)
+    t_index_list = list(range(1, 50, 50 // step_count))[:step_count]
 
     return StreamDiffusionParams(
-        model_id=model_id,
+        model_id=model_id,  # type: ignore
         width=512,
         height=512,
         acceleration="tensorrt",
         t_index_list=t_index_list,
         controlnets=controlnets,
-        ip_adapter=ip_adapter,
+        ip_adapter=IPAdapterConfig(
+            enabled=ipa_type is not None,
+            type="faceid" if ipa_type == "faceid" else "regular",
+        ),
         image_postprocessing=ProcessingConfig(
             processors=[SingleProcessorConfig(type="realesrgan_trt")]
         ),
+        cached_attention=CachedAttentionConfig(enabled=use_cached_attn),
     )
 
 
