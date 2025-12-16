@@ -16,6 +16,9 @@ RUN apt update && \
     xz-utils tk-dev libffi-dev liblzma-dev python3-openssl git runit libzmq3-dev && \
     apt clean && rm -rf /var/lib/apt/lists/*
 
+# Install uv (pinned version copied from official image)
+COPY --from=ghcr.io/astral-sh/uv:0.9.17 /uv /uvx /bin/
+
 # Install ffmpeg
 RUN apt update && apt install -yqq --no-install-recommends \
     autoconf automake build-essential cmake git-core libtool pkg-config wget \
@@ -71,7 +74,7 @@ RUN rm -rf /workspace/ComfyUI/models && ln -s /models/ComfyUI--models /workspace
 RUN rm -rf /workspace/ComfyUI/output && ln -s /models/ComfyUI--output /workspace/ComfyUI/output
 
 # Ensure all the next RUN commands are run in the comfystream conda environment
-RUN echo "source /workspace/miniconda3/etc/profile.d/conda.sh && conda activate comfystream" >> /conda_activate.sh && \
+RUN echo "source /workspace/miniconda3/etc/profile.d/conda.sh && conda activate comfystream && export VIRTUAL_ENV=\$CONDA_PREFIX" >> /conda_activate.sh && \
     chmod +x /conda_activate.sh
 ENV BASH_ENV=/conda_activate.sh
 SHELL ["/bin/bash", "-c"]
@@ -79,10 +82,9 @@ SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["bash", "-c", "exec /opt/nvidia/nvidia_entrypoint.sh \"$@\"", "--"]
 
 # -----------------------------------------------------------------------------
-# live-app: The section below was copied from live-app-__PIPELINE__ since we don't use it for comfyui anymore.
+# live-app: Install ai-runner and pipeline
 # -----------------------------------------------------------------------------
 
-# Install latest stable Go version and system dependencies
 RUN apt update && apt install -yqq \
     wget \
     libcairo2-dev \
@@ -90,11 +92,26 @@ RUN apt update && apt install -yqq \
     pkg-config \
     && apt clean && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml /tmp/pyproject.toml
-# Copy stub for editable install validation (setuptools needs the app package to exist)
-COPY app/__init__.py /tmp/app/__init__.py
-RUN PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu128 \
-    conda run -n comfystream pip install --root-user-action ignore "/tmp[realtime]"
+WORKDIR /app/live/comfyui
+
+# Copy runner and pipeline files for dependency resolution
+COPY runner/pyproject.toml runner/uv.lock /app/runner/
+COPY live/comfyui/pyproject.toml live/comfyui/uv.lock .
+# Copy stubs for editable install validation
+COPY runner/app/__init__.py /app/runner/app/
+COPY live/comfyui/pipeline/__init__.py ./pipeline/
+
+# Install dependencies using uv sync --inexact to preserve conda packages
+RUN uv sync --active --locked --no-install-project --inexact
+
+# Copy application files
+COPY runner/app/ /app/runner/app/
+COPY runner/images/ /app/runner/images/
+COPY live/comfyui/pipeline ./pipeline/
+COPY live/comfyui/main.py ./main.py
+
+# Final sync to install the project
+RUN uv sync --active --locked --inexact
 
 # Set environment variables
 ENV MAX_WORKERS=1 \
@@ -102,19 +119,12 @@ ENV MAX_WORKERS=1 \
     DIFFUSERS_CACHE=/models \
     MODEL_DIR=/models
 
-# Copy application files
-COPY app/ /app/app
-COPY images/ /app/images
-COPY bench.py /app/bench.py
-
-WORKDIR /app
-
 # Keep these args/envs last to maximize cache reuse when only runtime envs change
 ARG GIT_SHA
 ARG VERSION="undefined"
 
 ENV GIT_SHA="${GIT_SHA}" \
-    VERSION="${VERSION}" \
-    PIPELINE="comfyui"
+    VERSION="${VERSION}"
 
-CMD ["uvicorn", "app.main:app", "--log-config", "app/cfg/uvicorn_logging_config.json", "--host", "", "--port", "8000"]
+CMD ["uv", "run", "--active", "--frozen", "python", "main.py"]
+
