@@ -8,7 +8,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterator, Optional, Sequence
+from typing import Dict, Iterator, List, Optional, Sequence, Set
 
 import torch
 from huggingface_hub import hf_hub_download
@@ -39,6 +39,32 @@ OPTIMAL_TIMESTEPS_BY_TYPE: Dict[ModelType, int] = {
     "sd21": 3,
     "sdxl": 2,
 }
+
+# Which model types to build for each SUBVARIANT.
+# This allows splitting engine builds across different container images.
+# See .github/workflows/ai-runner-docker-live-streamdiffusion.yaml for the list of subvariants.
+SUBVARIANT_MODEL_TYPES: Dict[str, List[ModelType]] = {
+    "": ["sd15", "sd21", "sdxl"],    # Empty SUBVARIANT: builds ALL models (for public operators)
+    "sdturbo": ["sd15", "sd21"],     # SD Turbo variant (sd21) + SD 1.5
+    "sd15": ["sd15", "sd21"],        # SD 1.5 variant
+    "sd15-v2v": ["sd15", "sd21"],    # SD 1.5 with streamv2v variant
+    "sdxl": ["sdxl"],                # SDXL variant
+    "sdxl-faceid": ["sdxl"],         # SDXL with FaceID variant
+}
+
+def _get_allowed_model_types() -> Set[ModelType]:
+    """Get the set of model types to build based on SUBVARIANT env var."""
+    subvariant = os.environ.get("SUBVARIANT", "")
+
+    if subvariant in SUBVARIANT_MODEL_TYPES:
+        allowed = set(SUBVARIANT_MODEL_TYPES[subvariant])
+        logging.info("SUBVARIANT=%r: building model types %s", subvariant, sorted(allowed))
+        return allowed
+
+    # Unknown SUBVARIANT = build everything with a warning
+    all_types: Set[ModelType] = set(MODEL_ID_TO_TYPE.values())
+    logging.warning("SUBVARIANT=%r is unknown, building ALL model types %s", subvariant, sorted(all_types))
+    return all_types
 
 MIN_RESOLUTION = 384
 MAX_RESOLUTION = 1024
@@ -222,20 +248,20 @@ def _ensure_repo(repo: GitRepo) -> Path:
 
 
 def _build_matrix() -> Iterator[BuildJob]:
+    allowed_types = _get_allowed_model_types()
+
     for model_id, model_type in MODEL_ID_TO_TYPE.items():
+        if model_type not in allowed_types:
+            logging.info("Skipping model %s (type=%s): not in allowed types for this SUBVARIANT", model_id, model_type)
+            continue
+
         ipa_types: Sequence[Optional[str]]
         ipa_types = [None]
         if model_type in IPADAPTER_SUPPORTED_TYPES:
-            # TODO: Re-enable faceid for all supported types once models tar size permits
-            if model_type == "sdxl":
-                ipa_types = ["regular", "faceid"]
-            else:
-                ipa_types = ["regular"]
+            ipa_types = ["regular", "faceid"]
 
         for ipa_type in ipa_types:
-            # TODO: Re-enable cached attention for all model types once models tar size permits
-            cached_attn_options = (False, True) if model_type in ("sd15", "sdxl") else (False,)
-            for use_cached_attn in cached_attn_options:
+            for use_cached_attn in (False, True):
                 params = _create_params(model_id, model_type, ipa_type, use_cached_attn)
                 yield BuildJob(params=params)
 
@@ -276,9 +302,6 @@ def _create_params(
     controlnet_ids = CONTROLNETS_BY_TYPE.get(model_type)
     if controlnet_ids:
         for cn_model_id in controlnet_ids:
-            # TODO: Re-enable TemporalNet for sdxl once models tar size permits
-            if model_type == "sdxl" and "TemporalNet" in cn_model_id:
-                continue
             preprocessor = "passthrough" if "TemporalNet" not in cn_model_id else "temporal_net_tensorrt"
             config = ControlNetConfig(
                 model_id=cn_model_id,  # type: ignore
